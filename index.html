@@ -67,7 +67,8 @@
 
 <script>
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    // Multiple readbacks will occur (getImageData). Tell the browser up front.
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     let isDrawing = false;
     let session = null;
 
@@ -160,8 +161,8 @@
         const bounds = getDigitBounds(sourceImageData);
 
         let tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 28;
-        tempCanvas.height = 28;
+        tempCanvas.width = 32;
+        tempCanvas.height = 32;
         const tempCtx = tempCanvas.getContext('2d');
 
         if (bounds) {
@@ -190,20 +191,20 @@
                 Math.floor((squareSide - cropWidth) / 2),
                 Math.floor((squareSide - cropHeight) / 2)
             );
-            tempCtx.drawImage(squareCanvas, 0, 0, 28, 28);
+            tempCtx.drawImage(squareCanvas, 0, 0, 32, 32);
         } else {
-            tempCtx.drawImage(canvas, 0, 0, 28, 28);
+            tempCtx.drawImage(canvas, 0, 0, 32, 32);
         }
 
-        const imgData = tempCanvas.getContext('2d').getImageData(0, 0, 28, 28);
-        const float32Data = new Float32Array(28 * 28);
+        const imgData = tempCanvas.getContext('2d').getImageData(0, 0, 32, 32);
+        const float32Data = new Float32Array(32 * 32);
 
         for (let i = 0; i < imgData.data.length; i += 4) {
             let gray = (imgData.data[i] + imgData.data[i+1] + imgData.data[i+2]) / 3 / 255;
             float32Data[i / 4] = (gray - 0.1307) / 0.3081;
         }
 
-        const inputTensor = new ort.Tensor('float32', float32Data, [1, 1, 28, 28]);
+        const inputTensor = new ort.Tensor('float32', float32Data, [1, 1, 32, 32]);
         
         try {
             const feeds = {};

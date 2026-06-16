@@ -168,6 +168,7 @@
             const padding = 20;
             const cropWidth = bounds.maxX - bounds.minX + 1;
             const cropHeight = bounds.maxY - bounds.minY + 1;
+            const squareSide = Math.max(cropWidth, cropHeight) + padding * 2;
 
             const cropCanvas = document.createElement('canvas');
             cropCanvas.width = cropWidth;
@@ -178,14 +179,18 @@
                 0
             );
 
-            const paddedCanvas = document.createElement('canvas');
-            paddedCanvas.width = cropWidth + padding * 2;
-            paddedCanvas.height = cropHeight + padding * 2;
-            const paddedCtx = paddedCanvas.getContext('2d');
-            paddedCtx.fillStyle = 'black';
-            paddedCtx.fillRect(0, 0, paddedCanvas.width, paddedCanvas.height);
-            paddedCtx.drawImage(cropCanvas, padding, padding);
-            tempCtx.drawImage(paddedCanvas, 0, 0, 28, 28);
+            const squareCanvas = document.createElement('canvas');
+            squareCanvas.width = squareSide;
+            squareCanvas.height = squareSide;
+            const squareCtx = squareCanvas.getContext('2d');
+            squareCtx.fillStyle = 'black';
+            squareCtx.fillRect(0, 0, squareCanvas.width, squareCanvas.height);
+            squareCtx.drawImage(
+                cropCanvas,
+                Math.floor((squareSide - cropWidth) / 2),
+                Math.floor((squareSide - cropHeight) / 2)
+            );
+            tempCtx.drawImage(squareCanvas, 0, 0, 28, 28);
         } else {
             tempCtx.drawImage(canvas, 0, 0, 28, 28);
         }

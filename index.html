@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handwritten Digit Recognizer (Pure Frontend)</title>
+    <script src="https://unpkg.com/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f6f9;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: black;
+            cursor: crosshair;
+            border-radius: 4px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .controls {
+            margin-top: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: background 0.2s;
+        }
+        .btn-predict { background-color: #007bff; color: white; }
+        .btn-predict:hover { background-color: #0056b3; }
+        .btn-clear { background-color: #6c757d; color: white; }
+        .btn-clear:hover { background-color: #5a6268; }
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Draw a Digit (0-9)</h2>
+    <canvas id="canvas" width="280" height="280"></canvas>
+    
+    <div class="controls">
+        <button class="btn-clear" onclick="clearCanvas()">Clear</button>
+        <button class="btn-predict" onclick="predict()">Predict</button>
+    </div>
+    
+    <div id="result">Prediction: <strong>Waiting...</strong></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let session = null;
+
+    // Set up drawing canvas layout 
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 16; 
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // Initialize ONNX Model
+    async function initModel() {
+        try {
+            document.getElementById('result').innerHTML = "Loading neural network...";
+            // Explicitly set the WebAssembly binary path relative to the root folder
+            ort.env.wasm.wasmPaths = 'https://unpkg.com/onnxruntime-web@1.14.0/dist/';
+            
+            // Using a relative path for your compiled model file
+            session = await ort.InferenceSession.create('./mnist_cnn.onnx');
+            document.getElementById('result').innerHTML = "Prediction: <strong>Ready!</strong>";
+        } catch (e) {
+            console.error(e);
+            document.getElementById('result').innerHTML = "<span style='color:red;'>Failed to load model. Ensure mnist_cnn.onnx is in the same folder and committed to GitHub.</span>";
+        }
+    }
+    initModel();
+
+    // Mouse and Touch Event Triggers
+    canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
+    canvas.addEventListener('mouseleave', () => { isDrawing = false; ctx.beginPath(); });
+    canvas.addEventListener('touchstart', (e) => { isDrawing = true; draw(e.touches[0]); e.preventDefault(); });
+    canvas.addEventListener('touchmove', (e) => { draw(e.touches[0]); e.preventDefault(); });
+    canvas.addEventListener('touchend', () => { isDrawing = false; ctx.beginPath(); });
+
+    function draw(e) {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    }
+
+    function clearCanvas() {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('result').innerHTML = "Prediction: <strong>Cleared!</strong>";
+    }
+
+    // Run Inference
+    async function predict() {
+        if (!session) return;
+
+        let tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 28;
+        tempCanvas.height = 28;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(canvas, 0, 0, 28, 28);
+
+        const imgData = tempCtx.getImageData(0, 0, 28, 28);
+        const float32Data = new Float32Array(28 * 28);
+
+        // Normalize matching your README definition: (pixel - 0.1307) / 0.3081
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            let gray = (imgData.data[i] + imgData.data[i+1] + imgData.data[i+2]) / 3 / 255;
+            float32Data[i / 4] = (gray - 0.1307) / 0.3081;
+        }
+
+        const inputTensor = new ort.Tensor('float32', float32Data, [1, 1, 28, 28]);
+        
+        try {
+            const feeds = { input: inputTensor };
+            const results = await session.run(feeds);
+            const outputData = results.output.data;
+            let prediction = outputData.indexOf(Math.max(...outputData));
+            document.getElementById('result').innerHTML = `Prediction: <strong style="color:#007bff; font-size:32px;">${prediction}</strong>`;
+        } catch (err) {
+            console.error(err);
+            document.getElementById('result').innerHTML = "<span style='color:red;'>Inference processing error.</span>";
+        }
+    }
+</script>
+
+</body>
+</html>

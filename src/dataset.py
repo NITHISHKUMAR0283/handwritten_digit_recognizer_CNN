@@ -4,6 +4,7 @@ from torchvision import datasets,transforms
 def get_data_loaders():
     
     transform = transforms.Compose([
+        transforms.Resize(32),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
     train_dataset = datasets.MNIST(

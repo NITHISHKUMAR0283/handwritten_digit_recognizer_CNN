@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Handwritten Digit Recognizer (Pure Frontend)</title>
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
-    <style>
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/ort.min.js"></script>    <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
@@ -84,8 +84,7 @@
             document.getElementById('result').innerHTML = "Loading neural network...";
             
             // Set paths for WASM dependencies
-            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/';
-            
+            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/';            
             // Fixed: Standard relative path with a cache-buster timestamp to defeat browser caching
             const modelUrl = './mnist_cnn.onnx?v=' + Date.now();
             
@@ -142,9 +141,10 @@
         const inputTensor = new ort.Tensor('float32', float32Data, [1, 1, 28, 28]);
         
         try {
-            const feeds = { input: inputTensor };
+            const feeds = {};
+            feeds[session.inputNames[0]] = inputTensor;
             const results = await session.run(feeds);
-            const outputData = results.output.data;
+            const outputData = results[session.outputNames[0]].data;
             let prediction = outputData.indexOf(Math.max(...outputData));
             document.getElementById('result').innerHTML = `Prediction: <strong style="color:#007bff; font-size:32px;">${prediction}</strong>`;
         } catch (err) {

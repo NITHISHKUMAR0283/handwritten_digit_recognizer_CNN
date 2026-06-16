@@ -81,6 +81,11 @@
 
     async function initModel() {
         try {
+            if (window.location.protocol === 'file:') {
+                document.getElementById('result').innerHTML = "<span style='color:red;'>Open this page through a local server or static host. file:// cannot fetch mnist_cnn.onnx because the browser blocks it.</span>";
+                return;
+            }
+
             document.getElementById('result').innerHTML = "Loading neural network...";
             
             // Set paths for WASM dependencies
@@ -122,13 +127,68 @@
         document.getElementById('result').innerHTML = "Prediction: <strong>Cleared!</strong>";
     }
 
+    function getDigitBounds(imageData) {
+        const { data, width, height } = imageData;
+        let minX = width;
+        let minY = height;
+        let maxX = -1;
+        let maxY = -1;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                if (data[index] > 20 || data[index + 1] > 20 || data[index + 2] > 20) {
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+
+        if (maxX === -1) {
+            return null;
+        }
+
+        return { minX, minY, maxX, maxY };
+    }
+
     async function predict() {
         if (!session) return;
+
+        const sourceImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const bounds = getDigitBounds(sourceImageData);
 
         let tempCanvas = document.createElement('canvas');
         tempCanvas.width = 28;
         tempCanvas.height = 28;
-        tempCanvas.getContext('2d').drawImage(canvas, 0, 0, 28, 28);
+        const tempCtx = tempCanvas.getContext('2d');
+
+        if (bounds) {
+            const padding = 20;
+            const cropWidth = bounds.maxX - bounds.minX + 1;
+            const cropHeight = bounds.maxY - bounds.minY + 1;
+
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = cropWidth;
+            cropCanvas.height = cropHeight;
+            cropCanvas.getContext('2d').putImageData(
+                ctx.getImageData(bounds.minX, bounds.minY, cropWidth, cropHeight),
+                0,
+                0
+            );
+
+            const paddedCanvas = document.createElement('canvas');
+            paddedCanvas.width = cropWidth + padding * 2;
+            paddedCanvas.height = cropHeight + padding * 2;
+            const paddedCtx = paddedCanvas.getContext('2d');
+            paddedCtx.fillStyle = 'black';
+            paddedCtx.fillRect(0, 0, paddedCanvas.width, paddedCanvas.height);
+            paddedCtx.drawImage(cropCanvas, padding, padding);
+            tempCtx.drawImage(paddedCanvas, 0, 0, 28, 28);
+        } else {
+            tempCtx.drawImage(canvas, 0, 0, 28, 28);
+        }
 
         const imgData = tempCanvas.getContext('2d').getImageData(0, 0, 28, 28);
         const float32Data = new Float32Array(28 * 28);
